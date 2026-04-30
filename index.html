@@ -2,88 +2,73 @@
 <html>
 <head>
 <meta charset="UTF-8">
-
-<!-- iOS app feel -->
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-
-<title>Tanita App</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tanita PRO</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
-body {
-margin:0;
-font-family:-apple-system;
-background:#0f172a;
-color:white;
-}
-
-/* Splash screen */
-#splash {
-position:fixed;
-top:0;left:0;right:0;bottom:0;
-background:#0f172a;
-display:flex;
-align-items:center;
-justify-content:center;
-font-size:22px;
-z-index:9999;
-}
-
-/* App */
-.header {padding:20px;font-size:22px;font-weight:bold;}
-.tabs {display:flex;background:#1e293b;}
-.tab {flex:1;padding:12px;text-align:center;opacity:0.6;}
-.tab.active {opacity:1;border-bottom:2px solid #22c55e;}
+body {margin:0;font-family:-apple-system;background:#0f172a;color:white;}
 .container {padding:15px;}
-.card {background:#1e293b;padding:15px;border-radius:14px;margin-bottom:15px;}
-input,select {
-width:100%;padding:10px;margin:5px 0;border-radius:8px;
-border:none;background:#334155;color:white;
-}
+.card {background:#1e293b;padding:15px;border-radius:15px;margin-bottom:15px;}
+h2 {margin-top:0;}
+input[type=range] {width:100%;}
+.value {text-align:right;font-size:14px;opacity:0.8;}
 button {
-width:100%;padding:12px;border:none;border-radius:10px;
-background:#22c55e;color:black;font-weight:bold;
+width:100%;padding:14px;border:none;border-radius:12px;
+background:#22c55e;color:black;font-weight:bold;margin-top:10px;
 }
-.hidden{display:none;}
-.stat{display:flex;justify-content:space-between;margin:5px 0;}
-.green{color:#22c55e;}
-.red{color:#ef4444;}
+select {width:100%;padding:10px;border-radius:10px;background:#334155;color:white;}
 </style>
 </head>
 
 <body>
 
-<div id="splash">Tanita Tracker</div>
-
-<div class="header">Tanita Dashboard</div>
-
-<div class="tabs">
-<div class="tab active" onclick="showTab('dashboard',event)">Dashboard</div>
-<div class="tab" onclick="showTab('input',event)">Unos</div>
-<div class="tab" onclick="showTab('charts',event)">Grafici</div>
-</div>
-
 <div class="container">
 
-<div id="dashboard" class="card"></div>
+<div class="card">
+<h2>Unos</h2>
 
-<div id="input" class="card hidden">
-<input type="date" id="date">
-<input type="number" id="weight" placeholder="Težina">
-<input type="number" id="fat" placeholder="Body fat">
-<input type="number" id="muscle" placeholder="Mišići">
-<input type="number" id="water" placeholder="Voda">
-<input type="number" id="bmi" placeholder="BMI">
-<button onclick="saveData()">Sačuvaj</button>
+<label>Težina (kg)</label>
+<input type="range" min="50" max="150" step="0.1" id="weight">
+<div class="value" id="weightVal"></div>
+
+<label>Body Fat (%)</label>
+<input type="range" min="5" max="40" step="0.1" id="fat">
+<div class="value" id="fatVal"></div>
+
+<label>Mišići (kg)</label>
+<input type="range" min="30" max="80" step="0.1" id="muscle">
+<div class="value" id="muscleVal"></div>
+
+<label>Voda (%)</label>
+<input type="range" min="40" max="70" step="0.1" id="water">
+<div class="value" id="waterVal"></div>
+
+<label>BMI</label>
+<input type="range" min="18" max="35" step="0.1" id="bmi">
+<div class="value" id="bmiVal"></div>
+
+<label>Kosti (kg)</label>
+<input type="range" min="2" max="5" step="0.1" id="bone">
+<div class="value" id="boneVal"></div>
+
+<label>Physique Level</label>
+<input type="range" min="1" max="9" step="1" id="physique">
+<div class="value" id="physiqueVal"></div>
+
+<label>Starost tela</label>
+<input type="range" min="15" max="80" step="1" id="age">
+<div class="value" id="ageVal"></div>
+
+<button onclick="save()">Sačuvaj</button>
 </div>
 
-<div id="charts" class="card hidden">
+<div class="card">
+<h2>Graf</h2>
 <select id="metric" onchange="drawChart()">
 <option value="weight">Težina</option>
-<option value="fat">Body fat</option>
+<option value="fat">Body Fat</option>
 <option value="muscle">Mišići</option>
 <option value="water">Voda</option>
 <option value="bmi">BMI</option>
@@ -94,71 +79,60 @@ background:#22c55e;color:black;font-weight:bold;
 </div>
 
 <script>
-let data=JSON.parse(localStorage.getItem("tanitaData"))||[];
+let data = JSON.parse(localStorage.getItem("tanitaData")) || [];
+let chart;
 
-/* Splash */
-setTimeout(()=>{document.getElementById("splash").style.display="none"},1200);
-
-function showTab(tab,e){
-document.querySelectorAll('.card').forEach(c=>c.classList.add('hidden'));
-document.getElementById(tab).classList.remove('hidden');
-
-document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-e.target.classList.add('active');
-
-if(tab==='dashboard') renderDashboard();
-if(tab==='charts') drawChart();
+function updateValues(){
+weightVal.innerText = weight.value + " kg";
+fatVal.innerText = fat.value + " %";
+muscleVal.innerText = muscle.value + " kg";
+waterVal.innerText = water.value + " %";
+bmiVal.innerText = bmi.value;
+boneVal.innerText = bone.value + " kg";
+physiqueVal.innerText = physique.value;
+ageVal.innerText = age.value + " god";
 }
 
-function saveData(){
+document.querySelectorAll("input").forEach(i=>i.oninput=updateValues);
+updateValues();
+
+function save(){
 data.push({
-date:date.value,
+date:new Date().toLocaleDateString(),
 weight:+weight.value,
 fat:+fat.value,
 muscle:+muscle.value,
 water:+water.value,
-bmi:+bmi.value
+bmi:+bmi.value,
+bone:+bone.value,
+physique:+physique.value,
+age:+age.value
 });
-localStorage.setItem("tanitaData",JSON.stringify(data));
+localStorage.setItem("tanitaData", JSON.stringify(data));
 alert("Sačuvano");
-}
-
-function renderDashboard(){
-const div=document.getElementById("dashboard");
-if(data.length<2){div.innerHTML="Unesi više podataka";return;}
-
-let first=data[0];
-let last=data[data.length-1];
-
-let w=(last.weight-first.weight).toFixed(1);
-let f=(last.fat-first.fat).toFixed(1);
-let m=(last.muscle-first.muscle).toFixed(1);
-
-div.innerHTML=`
-<div class="stat">Težina <span class="${w<0?'green':'red'}">${w} kg</span></div>
-<div class="stat">Fat <span class="${f<0?'green':'red'}">${f} %</span></div>
-<div class="stat">Mišići <span class="${m>0?'green':'red'}">${m}</span></div>
-<br>
-<div>${w<0?'✔ Mršaviš':'⚠ Nema pada težine'}</div>
-<div>${f<0?'✔ Gubiš mast':'⚠ Mast stagnira'}</div>
-<div>${m>0?'💪 Mišići rastu':'⚠ Mišići stagniraju'}</div>
-`;
+drawChart();
 }
 
 function drawChart(){
-new Chart(chart,{
+let metric = document.getElementById("metric").value;
+
+if(chart) chart.destroy();
+
+chart = new Chart(document.getElementById("chart"),{
 type:'line',
 data:{
 labels:data.map(d=>d.date),
 datasets:[{
-label:'Trend',
-data:data.map(d=>d[metric.value]),
+label:metric,
+data:data.map(d=>d[metric]),
 borderWidth:2,
 tension:0.4
 }]
 }
 });
 }
+
+drawChart();
 </script>
 
 </body>
