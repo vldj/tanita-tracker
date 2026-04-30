@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tanita PRO</title>
+<title>Tanita PRO+</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -12,19 +12,29 @@ body {margin:0;font-family:-apple-system;background:#0f172a;color:white;}
 .container {padding:15px;}
 .card {background:#1e293b;padding:15px;border-radius:15px;margin-bottom:15px;}
 h2 {margin-top:0;}
-input[type=range] {width:100%;}
+input[type=range], input[type=number] {width:100%;}
 .value {text-align:right;font-size:14px;opacity:0.8;}
 button {
 width:100%;padding:14px;border:none;border-radius:12px;
 background:#22c55e;color:black;font-weight:bold;margin-top:10px;
 }
-select {width:100%;padding:10px;border-radius:10px;background:#334155;color:white;}
+.stat{display:flex;justify-content:space-between;margin:6px 0;}
+.green{color:#22c55e;}
+.red{color:#ef4444;}
 </style>
 </head>
 
 <body>
 
 <div class="container">
+
+<div class="card">
+<h2>Cilj</h2>
+<input type="number" id="goalWeight" placeholder="Ciljna težina (kg)">
+<button onclick="saveGoal()">Sačuvaj cilj</button>
+</div>
+
+<div class="card" id="analysis"></div>
 
 <div class="card">
 <h2>Unos</h2>
@@ -41,26 +51,6 @@ select {width:100%;padding:10px;border-radius:10px;background:#334155;color:whit
 <input type="range" min="30" max="80" step="0.1" id="muscle">
 <div class="value" id="muscleVal"></div>
 
-<label>Voda (%)</label>
-<input type="range" min="40" max="70" step="0.1" id="water">
-<div class="value" id="waterVal"></div>
-
-<label>BMI</label>
-<input type="range" min="18" max="35" step="0.1" id="bmi">
-<div class="value" id="bmiVal"></div>
-
-<label>Kosti (kg)</label>
-<input type="range" min="2" max="5" step="0.1" id="bone">
-<div class="value" id="boneVal"></div>
-
-<label>Physique Level</label>
-<input type="range" min="1" max="9" step="1" id="physique">
-<div class="value" id="physiqueVal"></div>
-
-<label>Starost tela</label>
-<input type="range" min="15" max="80" step="1" id="age">
-<div class="value" id="ageVal"></div>
-
 <button onclick="save()">Sačuvaj</button>
 </div>
 
@@ -70,8 +60,6 @@ select {width:100%;padding:10px;border-radius:10px;background:#334155;color:whit
 <option value="weight">Težina</option>
 <option value="fat">Body Fat</option>
 <option value="muscle">Mišići</option>
-<option value="water">Voda</option>
-<option value="bmi">BMI</option>
 </select>
 <canvas id="chart"></canvas>
 </div>
@@ -80,37 +68,72 @@ select {width:100%;padding:10px;border-radius:10px;background:#334155;color:whit
 
 <script>
 let data = JSON.parse(localStorage.getItem("tanitaData")) || [];
+let goal = localStorage.getItem("goalWeight");
 let chart;
+
+if(goal) goalWeight.value = goal;
 
 function updateValues(){
 weightVal.innerText = weight.value + " kg";
 fatVal.innerText = fat.value + " %";
 muscleVal.innerText = muscle.value + " kg";
-waterVal.innerText = water.value + " %";
-bmiVal.innerText = bmi.value;
-boneVal.innerText = bone.value + " kg";
-physiqueVal.innerText = physique.value;
-ageVal.innerText = age.value + " god";
 }
 
-document.querySelectorAll("input").forEach(i=>i.oninput=updateValues);
+document.querySelectorAll("input[type=range]").forEach(i=>i.oninput=updateValues);
 updateValues();
+
+function saveGoal(){
+localStorage.setItem("goalWeight", goalWeight.value);
+alert("Cilj sačuvan");
+}
 
 function save(){
 data.push({
 date:new Date().toLocaleDateString(),
 weight:+weight.value,
 fat:+fat.value,
-muscle:+muscle.value,
-water:+water.value,
-bmi:+bmi.value,
-bone:+bone.value,
-physique:+physique.value,
-age:+age.value
+muscle:+muscle.value
 });
 localStorage.setItem("tanitaData", JSON.stringify(data));
-alert("Sačuvano");
 drawChart();
+renderAnalysis();
+}
+
+function renderAnalysis(){
+const div = document.getElementById("analysis");
+
+if(data.length < 2){
+div.innerHTML = "Unesi više podataka za analizu";
+return;
+}
+
+let first = data[0];
+let last = data[data.length-1];
+
+let w = (last.weight - first.weight).toFixed(1);
+let f = (last.fat - first.fat).toFixed(1);
+let m = (last.muscle - first.muscle).toFixed(1);
+
+let goalText = "";
+if(goal){
+let diff = (last.weight - goal).toFixed(1);
+goalText = `<div class="stat">Do cilja <span>${diff} kg</span></div>`;
+}
+
+div.innerHTML = `
+<h2>Analiza</h2>
+
+<div class="stat">Težina <span class="${w<0?'green':'red'}">${w} kg</span></div>
+<div class="stat">Fat <span class="${f<0?'green':'red'}">${f} %</span></div>
+<div class="stat">Mišići <span class="${m>0?'green':'red'}">${m} kg</span></div>
+
+${goalText}
+
+<br>
+<div>${w<0?'✔ Mršaviš':'⚠ Nema pada težine'}</div>
+<div>${f<0?'✔ Gubiš mast':'⚠ Mast stagnira'}</div>
+<div>${m>0?'💪 Mišići rastu':'⚠ Mišići stagniraju'}</div>
+`;
 }
 
 function drawChart(){
@@ -132,6 +155,7 @@ tension:0.4
 });
 }
 
+renderAnalysis();
 drawChart();
 </script>
 
