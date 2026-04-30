@@ -3,16 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Body Tracker</title>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<title>Health Style Tracker</title>
 
 <style>
 body {
 margin:0;
 font-family:-apple-system;
-background:#0f172a;
-color:white;
+background:#f2f2f7;
+color:#000;
 }
 
 .container {
@@ -20,58 +19,57 @@ padding:15px;
 }
 
 .card {
-background:#1e293b;
-padding:15px;
+background:white;
 border-radius:16px;
+padding:15px;
 margin-bottom:15px;
+box-shadow:0 2px 6px rgba(0,0,0,0.05);
 }
 
 .title {
 font-size:14px;
-opacity:0.7;
+color:#666;
+margin-bottom:10px;
 }
 
-.big {
-font-size:32px;
+/* Wheel picker */
+.wheel {
+height:120px;
+overflow-y:scroll;
+scroll-snap-type:y mandatory;
+text-align:center;
+border-top:1px solid #eee;
+border-bottom:1px solid #eee;
+}
+
+.wheel div {
+height:40px;
+line-height:40px;
+scroll-snap-align:center;
+font-size:18px;
+}
+
+.selected {
 font-weight:bold;
+color:#007aff;
 }
 
-.row {
-display:flex;
-justify-content:space-between;
-margin-top:10px;
+.valueDisplay {
+text-align:center;
+font-size:24px;
+margin-bottom:10px;
 }
 
-.stepper {
-display:flex;
-justify-content:space-between;
-align-items:center;
-margin:10px 0;
-}
-
-.stepper button {
-width:36px;height:36px;border:none;border-radius:8px;
-background:#22c55e;
-font-size:18px;
-}
-
-.value {
-font-size:18px;
-}
-
-button.save {
+button {
 width:100%;
 padding:14px;
 border:none;
 border-radius:12px;
-background:#22c55e;
-color:black;
+background:#007aff;
+color:white;
 font-weight:bold;
 margin-top:10px;
 }
-
-.green {color:#22c55e;}
-.red {color:#ef4444;}
 </style>
 </head>
 
@@ -79,169 +77,68 @@ margin-top:10px;
 
 <div class="container">
 
-<!-- DASHBOARD -->
-<div class="card" id="dashboard"></div>
-
-<!-- TREND -->
-<div class="card" id="trend"></div>
-
-<!-- UNOS -->
 <div class="card">
-<div class="title">Unos</div>
-
-<div class="stepper">
-<span>Težina</span>
-<button onclick="step('weight',-0.1)">–</button>
-<div class="value" id="weightVal"></div>
-<button onclick="step('weight',0.1)">+</button>
+<div class="title">Težina</div>
+<div class="valueDisplay" id="weightDisplay">80.0 kg</div>
+<div class="wheel" id="weightWheel"></div>
 </div>
 
-<div class="stepper">
-<span>Fat</span>
-<button onclick="step('fat',-0.1)">–</button>
-<div class="value" id="fatVal"></div>
-<button onclick="step('fat',0.1)">+</button>
-</div>
-
-<div class="stepper">
-<span>Mišići</span>
-<button onclick="step('muscle',-0.1)">–</button>
-<div class="value" id="muscleVal"></div>
-<button onclick="step('muscle',0.1)">+</button>
-</div>
-
-<button class="save" onclick="save()">Sačuvaj</button>
-</div>
-
-<!-- GRAF -->
 <div class="card">
-<div class="title">Graf</div>
-<select id="metric" onchange="drawChart()">
-<option value="weight">Težina</option>
-<option value="fat">Fat</option>
-<option value="muscle">Mišići</option>
-</select>
-<canvas id="chart"></canvas>
+<div class="title">Body Fat</div>
+<div class="valueDisplay" id="fatDisplay">20.0 %</div>
+<div class="wheel" id="fatWheel"></div>
 </div>
+
+<button onclick="save()">Sačuvaj</button>
 
 </div>
 
 <script>
 let data = JSON.parse(localStorage.getItem("tanitaData")) || [];
-let chart;
 
-let current = {weight:80, fat:20, muscle:50};
+function createWheel(id, min, max, step, displayId, unit){
+let wheel = document.getElementById(id);
 
-function step(field,delta){
-current[field]=(current[field]+delta).toFixed(1);
-updateUI();
+for(let i=min; i<=max; i+=step){
+let val = i.toFixed(1);
+let div = document.createElement("div");
+div.innerText = val;
+wheel.appendChild(div);
 }
 
-function updateUI(){
-weightVal.innerText=current.weight+" kg";
-fatVal.innerText=current.fat+" %";
-muscleVal.innerText=current.muscle+" kg";
+wheel.addEventListener("scroll", ()=>{
+let items = wheel.children;
+let index = Math.round(wheel.scrollTop / 40);
+
+Array.from(items).forEach(el=>el.classList.remove("selected"));
+
+if(items[index]){
+items[index].classList.add("selected");
+document.getElementById(displayId).innerText =
+items[index].innerText + " " + unit;
+}
+});
 }
 
-updateUI();
+createWheel("weightWheel",50,150,0.1,"weightDisplay","kg");
+createWheel("fatWheel",5,40,0.1,"fatDisplay","%");
+
+function getSelectedValue(wheelId){
+let wheel = document.getElementById(wheelId);
+let index = Math.round(wheel.scrollTop / 40);
+return parseFloat(wheel.children[index].innerText);
+}
 
 function save(){
 data.push({
 date:new Date().toLocaleDateString(),
-...current
+weight:getSelectedValue("weightWheel"),
+fat:getSelectedValue("fatWheel")
 });
+
 localStorage.setItem("tanitaData", JSON.stringify(data));
-render();
-drawChart();
+alert("Sačuvano");
 }
-
-function render(){
-renderDashboard();
-renderTrend();
-}
-
-function renderDashboard(){
-const d=document.getElementById("dashboard");
-
-if(data.length==0){
-d.innerHTML="Nema podataka";
-return;
-}
-
-let last=data[data.length-1];
-
-d.innerHTML=`
-<div class="title">Poslednje merenje</div>
-<div class="big">${last.weight} kg</div>
-
-<div class="row">
-<div>Fat: ${last.fat}%</div>
-<div>Mišići: ${last.muscle}kg</div>
-</div>
-`;
-}
-
-function calcTrend(field){
-if(data.length<2) return 0;
-let sum=0;
-for(let i=1;i<data.length;i++){
-sum+=data[i][field]-data[i-1][field];
-}
-return (sum/(data.length-1)).toFixed(2);
-}
-
-function renderTrend(){
-const t=document.getElementById("trend");
-
-if(data.length<2){
-t.innerHTML="Unesi više podataka";
-return;
-}
-
-let w=calcTrend("weight");
-let f=calcTrend("fat");
-let m=calcTrend("muscle");
-
-t.innerHTML=`
-<div class="title">Trend</div>
-
-<div class="row">
-<div>Težina</div>
-<div class="${w<0?'green':'red'}">${w} kg/ned</div>
-</div>
-
-<div class="row">
-<div>Fat</div>
-<div class="${f<0?'green':'red'}">${f}%</div>
-</div>
-
-<div class="row">
-<div>Mišići</div>
-<div class="${m>0?'green':'red'}">${m} kg</div>
-</div>
-`;
-}
-
-function drawChart(){
-let metric=document.getElementById("metric").value;
-
-if(chart) chart.destroy();
-
-chart=new Chart(document.getElementById("chart"),{
-type:'line',
-data:{
-labels:data.map(d=>d.date),
-datasets:[{
-data:data.map(d=>d[metric]),
-borderWidth:2,
-tension:0.4
-}]
-}
-});
-}
-
-render();
-drawChart();
 </script>
 
 </body>
