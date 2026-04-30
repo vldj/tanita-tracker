@@ -3,15 +3,44 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tanita PRO</title>
+<title>Body Tracker</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
-body {margin:0;font-family:-apple-system;background:#0f172a;color:white;}
-.container {padding:15px;}
-.card {background:#1e293b;padding:15px;border-radius:15px;margin-bottom:15px;}
-h2 {margin-top:0;}
+body {
+margin:0;
+font-family:-apple-system;
+background:#0f172a;
+color:white;
+}
+
+.container {
+padding:15px;
+}
+
+.card {
+background:#1e293b;
+padding:15px;
+border-radius:16px;
+margin-bottom:15px;
+}
+
+.title {
+font-size:14px;
+opacity:0.7;
+}
+
+.big {
+font-size:32px;
+font-weight:bold;
+}
+
+.row {
+display:flex;
+justify-content:space-between;
+margin-top:10px;
+}
 
 .stepper {
 display:flex;
@@ -21,8 +50,9 @@ margin:10px 0;
 }
 
 .stepper button {
-width:40px;height:40px;border:none;border-radius:10px;
-background:#22c55e;font-size:20px;
+width:36px;height:36px;border:none;border-radius:8px;
+background:#22c55e;
+font-size:18px;
 }
 
 .value {
@@ -30,13 +60,18 @@ font-size:18px;
 }
 
 button.save {
-width:100%;padding:14px;border:none;border-radius:12px;
-background:#22c55e;color:black;font-weight:bold;margin-top:10px;
+width:100%;
+padding:14px;
+border:none;
+border-radius:12px;
+background:#22c55e;
+color:black;
+font-weight:bold;
+margin-top:10px;
 }
 
-.stat{display:flex;justify-content:space-between;margin:6px 0;}
-.green{color:#22c55e;}
-.red{color:#ef4444;}
+.green {color:#22c55e;}
+.red {color:#ef4444;}
 </style>
 </head>
 
@@ -44,37 +79,43 @@ background:#22c55e;color:black;font-weight:bold;margin-top:10px;
 
 <div class="container">
 
-<div class="card" id="analysis"></div>
+<!-- DASHBOARD -->
+<div class="card" id="dashboard"></div>
 
+<!-- TREND -->
+<div class="card" id="trend"></div>
+
+<!-- UNOS -->
 <div class="card">
-<h2>Unos</h2>
+<div class="title">Unos</div>
 
 <div class="stepper">
 <span>Težina</span>
-<button onclick="step('weight',-0.1)">-</button>
-<div class="value" id="weightVal">80</div>
+<button onclick="step('weight',-0.1)">–</button>
+<div class="value" id="weightVal"></div>
 <button onclick="step('weight',0.1)">+</button>
 </div>
 
 <div class="stepper">
 <span>Fat</span>
-<button onclick="step('fat',-0.1)">-</button>
-<div class="value" id="fatVal">20</div>
+<button onclick="step('fat',-0.1)">–</button>
+<div class="value" id="fatVal"></div>
 <button onclick="step('fat',0.1)">+</button>
 </div>
 
 <div class="stepper">
 <span>Mišići</span>
-<button onclick="step('muscle',-0.1)">-</button>
-<div class="value" id="muscleVal">50</div>
+<button onclick="step('muscle',-0.1)">–</button>
+<div class="value" id="muscleVal"></div>
 <button onclick="step('muscle',0.1)">+</button>
 </div>
 
 <button class="save" onclick="save()">Sačuvaj</button>
 </div>
 
+<!-- GRAF -->
 <div class="card">
-<h2>Graf</h2>
+<div class="title">Graf</div>
 <select id="metric" onchange="drawChart()">
 <option value="weight">Težina</option>
 <option value="fat">Fat</option>
@@ -92,14 +133,14 @@ let chart;
 let current = {weight:80, fat:20, muscle:50};
 
 function step(field,delta){
-current[field] = +(current[field] + delta).toFixed(1);
+current[field]=(current[field]+delta).toFixed(1);
 updateUI();
 }
 
 function updateUI(){
-weightVal.innerText = current.weight + " kg";
-fatVal.innerText = current.fat + " %";
-muscleVal.innerText = current.muscle + " kg";
+weightVal.innerText=current.weight+" kg";
+fatVal.innerText=current.fat+" %";
+muscleVal.innerText=current.muscle+" kg";
 }
 
 updateUI();
@@ -110,9 +151,98 @@ date:new Date().toLocaleDateString(),
 ...current
 });
 localStorage.setItem("tanitaData", JSON.stringify(data));
-renderAnalysis();
+render();
 drawChart();
 }
 
+function render(){
+renderDashboard();
+renderTrend();
+}
+
+function renderDashboard(){
+const d=document.getElementById("dashboard");
+
+if(data.length==0){
+d.innerHTML="Nema podataka";
+return;
+}
+
+let last=data[data.length-1];
+
+d.innerHTML=`
+<div class="title">Poslednje merenje</div>
+<div class="big">${last.weight} kg</div>
+
+<div class="row">
+<div>Fat: ${last.fat}%</div>
+<div>Mišići: ${last.muscle}kg</div>
+</div>
+`;
+}
+
 function calcTrend(field){
-if(data.length < 2) return 0
+if(data.length<2) return 0;
+let sum=0;
+for(let i=1;i<data.length;i++){
+sum+=data[i][field]-data[i-1][field];
+}
+return (sum/(data.length-1)).toFixed(2);
+}
+
+function renderTrend(){
+const t=document.getElementById("trend");
+
+if(data.length<2){
+t.innerHTML="Unesi više podataka";
+return;
+}
+
+let w=calcTrend("weight");
+let f=calcTrend("fat");
+let m=calcTrend("muscle");
+
+t.innerHTML=`
+<div class="title">Trend</div>
+
+<div class="row">
+<div>Težina</div>
+<div class="${w<0?'green':'red'}">${w} kg/ned</div>
+</div>
+
+<div class="row">
+<div>Fat</div>
+<div class="${f<0?'green':'red'}">${f}%</div>
+</div>
+
+<div class="row">
+<div>Mišići</div>
+<div class="${m>0?'green':'red'}">${m} kg</div>
+</div>
+`;
+}
+
+function drawChart(){
+let metric=document.getElementById("metric").value;
+
+if(chart) chart.destroy();
+
+chart=new Chart(document.getElementById("chart"),{
+type:'line',
+data:{
+labels:data.map(d=>d.date),
+datasets:[{
+data:data.map(d=>d[metric]),
+borderWidth:2,
+tension:0.4
+}]
+}
+});
+}
+
+render();
+drawChart();
+</script>
+
+</body>
+</html>
